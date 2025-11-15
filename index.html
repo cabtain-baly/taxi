@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+ <!DOCTYPE html>
 <html lang="ar" dir="rtl">
 <head>
 <meta charset="UTF-8">
@@ -35,58 +35,22 @@ button:hover {background:#005fe0;}
 
 <label>الهوية – الوجه الأمامي</label>
 <div class="inputBox">
-    <input type="file" name="id_front" accept="image/*" capture="camera" required>
-    <img class="preview">
+    <input type="file" name="id_front" required>
 </div>
 
 <label>الهوية – الوجه الخلفي</label>
 <div class="inputBox">
-    <input type="file" name="id_back" accept="image/*" capture="camera" required>
-    <img class="preview">
+    <input type="file" name="id_back" required>
 </div>
 
-<label>فيديو الهوية الوجه و الخلف</label>
+<label>فيديو الهوية الوجه والخلف</label>
 <div class="inputBox">
-    <input type="file" name="id_video" accept="video/*" capture="camera" required>
-</div>
-
-<label>السنوية – الوجه الأمامي</label>
-<div class="inputBox">
-    <input type="file" name="car_front" accept="image/*" capture="camera" required>
-    <img class="preview">
-</div>
-
-<label>السنوية – الوجه الخلفي</label>
-<div class="inputBox">
-    <input type="file" name="car_back" accept="image/*" capture="camera" required>
-    <img class="preview">
-</div>
-
-<label>فيديو السنوية الوجه و الخلف</label>
-<div class="inputBox">
-    <input type="file" name="car_video" accept="video/*" capture="camera" required>
-</div>
-
-<label>مكاتبة أو وكالة (إن وجدت)</label>
-<div class="inputBox">
-    <input type="file" name="paper_img" accept="image/*" capture="camera">
-    <img class="preview">
-</div>
-
-<label>فيديو مكاتبة أو وكالة ان وجدت</label>
-<div class="inputBox">
-    <input type="file" name="paper_video" accept="video/*" capture="camera">
-</div>
-
-<label>فيديو لوجه السيارة يظهر الرقم</label>
-<div class="inputBox">
-    <input type="file" name="car_plate_video" accept="video/*" capture="camera" required>
+    <input type="file" name="id_video" required>
 </div>
 
 <label>صورة شخصية</label>
 <div class="inputBox">
-    <input type="file" name="selfie" accept="image/*" capture="camera" required>
-    <img class="preview">
+    <input type="file" name="selfie" required>
 </div>
 
 <button type="submit">إرسال الطلب</button>
@@ -96,48 +60,79 @@ button:hover {background:#005fe0;}
 </div>
 
 <script>
-// معاينة الصور فور اختيارها
-document.querySelectorAll('input[type="file"]').forEach(input=>{
-    input.addEventListener("change", function(){
-        if(this.files && this.files[0] && this.accept.includes("image")){
-            let img = this.parentElement.querySelector(".preview");
-            img.src = URL.createObjectURL(this.files[0]);
-            img.style.display = "block";
-        }
-    });
-});
 
-// رابط السكربت الجديد
-const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbx3Cm8cEi82iLiqu6VFROSaV2l4EbYf8unj-ys4gSQEqXsBJnw_qLxZOrjpGLLjUGj1rg/exec";
+const API = "https://taxi-virid.vercel.app/api/upload";
 
-// إرسال النموذج
-document.getElementById("uploadForm").addEventListener("submit", async function(e){
-    e.preventDefault();
+async function uploadToBackblaze(file) {
 
-    const btn = this.querySelector("button");
-    btn.disabled = true;
-    btn.innerText = "جاري الإرسال...";
+  // 1) الحصول على رابط الرفع من Vercel API
+  const meta = await fetch(API, {
+    method: "POST",
+    headers: {"Content-Type": "application/json"},
+    body: JSON.stringify({
+      fileName: Date.now() + "_" + file.name,
+      fileType: file.type
+    })
+  });
 
-    let fd = new FormData(this);
+  const info = await meta.json();
+  if (!info.ok) throw new Error(info.error);
 
-    try{
-        let res = await fetch(SCRIPT_URL, { method:"POST", body:fd });
-        let data = await res.json();
+  // 2) رفع الملف إلى Backblaze B2
+  const upload = await fetch(info.uploadUrl, {
+    method: "POST",
+    headers: {
+      "Authorization": info.uploadToken,
+      "X-Bz-File-Name": info.fileName,
+      "Content-Type": file.type,
+      "X-Bz-Content-Sha1": "do_not_verify"
+    },
+    body: file
+  });
 
-        if(data.ok){
-            document.getElementById("formBox").innerHTML =
-            `<div class="success">✔ تم إرسال طلبك بنجاح<br>سيتم التواصل معك عبر واتساب قريبًا</div>`;
-        } else {
-            alert("خطأ: " + data.error);
-            btn.disabled = false;
-            btn.innerText = "إرسال الطلب";
-        }
-    }catch(err){
-        alert("تعذر الاتصال بالخادم");
-        btn.disabled = false;
-        btn.innerText = "إرسال الطلب";
+  if (!upload.ok) {
+    const t = await upload.text();
+    throw new Error("Upload error: " + t);
+  }
+
+  return info.downloadUrl;
+}
+
+document.getElementById("uploadForm").addEventListener("submit", async e=>{
+  e.preventDefault();
+
+  const btn = e.target.querySelector("button");
+  btn.disabled = true;
+  btn.innerText = "جاري الرفع...";
+
+  const formData = new FormData(e.target);
+  const entries = [...formData.entries()];
+
+  let uploaded = [];
+
+  try {
+
+    for (let [key, file] of entries) {
+      if (typeof file === "object") {
+        const url = await uploadToBackblaze(file);
+        uploaded.push({ key, url });
+      }
     }
+
+    document.getElementById("formBox").innerHTML =
+      `<div class="success">✔ تم رفع الملفات بنجاح<br>
+       سيتم التواصل معك قريبًا</div>`;
+
+    console.log(uploaded);
+
+  } catch (err) {
+    alert("خطأ أثناء الرفع: " + err.message);
+    btn.disabled = false;
+    btn.innerText = "إرسال الطلب";
+  }
+
 });
+
 </script>
 
 </body>
