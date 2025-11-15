@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>استمارة تسجيل كابتن بلي</title>
+
+<style>
+body {background:#f2f2f2; font-family:Tahoma; margin:0; padding:0;}
+.container {max-width:650px; background:#fff; margin:20px auto; padding:25px; border-radius:14px; box-shadow:0 4px 16px rgba(0,0,0,0.15);}
+h2 {text-align:center; margin-bottom:20px;}
+label {font-weight:bold; margin-top:12px; display:block;}
+.inputBox {background:#fafafa; border:1px solid #ddd; padding:12px; border-radius:10px; margin-top:6px;}
+input[type="text"], input[type="tel"], input[type="file"] {width:100%; border:none; background:none; outline:none; font-size:15px;}
+.preview {margin-top:8px; display:none; width:100%; border-radius:8px;}
+button {width:100%; margin-top:20px; padding:14px; background:#0077ff; color:#fff; border:none; border-radius:10px; font-size:18px; cursor:pointer;}
+button:hover {background:#005fe0;}
+.success {text-align:center; font-size:26px; color:green; padding:40px 0; line-height:1.8;}
+</style>
+</head>
+
+<body>
+
+<div class="container" id="formBox">
+
+<h2>استمارة تسجيل كابتن بلي</h2>
+
+<form id="uploadForm">
+
+<label>الاسم الثلاثي</label>
+<div class="inputBox"><input type="text" name="name" required></div>
+
+<label>رقم الهاتف (واتساب)</label>
+<div class="inputBox"><input type="tel" name="phone" required></div>
+
+<label>الهوية – الوجه الأمامي</label>
+<div class="inputBox">
+    <input type="file" name="id_front" accept="image/*" capture="camera" required>
+    <img class="preview">
+</div>
+
+<label>الهوية – الوجه الخلفي</label>
+<div class="inputBox">
+    <input type="file" name="id_back" accept="image/*" capture="camera" required>
+    <img class="preview">
+</div>
+
+<label>فيديو الهوية الوجه و الخلف</label>
+<div class="inputBox">
+    <input type="file" name="id_video" accept="video/*" capture="camera" required>
+</div>
+
+<label>السنوية – الوجه الأمامي</label>
+<div class="inputBox">
+    <input type="file" name="car_front" accept="image/*" capture="camera" required>
+    <img class="preview">
+</div>
+
+<label>السنوية – الوجه الخلفي</label>
+<div class="inputBox">
+    <input type="file" name="car_back" accept="image/*" capture="camera" required>
+    <img class="preview">
+</div>
+
+<label>فيديو السنوية الوجه و الخلف</label>
+<div class="inputBox">
+    <input type="file" name="car_video" accept="video/*" capture="camera" required>
+</div>
+
+<label>مكاتبة أو وكالة (إن وجدت)</label>
+<div class="inputBox">
+    <input type="file" name="paper_img" accept="image/*" capture="camera">
+    <img class="preview">
+</div>
+
+<label>فيديو مكاتبة أو وكالة ان وجدت</label>
+<div class="inputBox">
+    <input type="file" name="paper_video" accept="video/*" capture="camera">
+</div>
+
+<label>فيديو لوجه السيارة يظهر الرقم</label>
+<div class="inputBox">
+    <input type="file" name="car_plate_video" accept="video/*" capture="camera" required>
+</div>
+
+<label>صورة شخصية</label>
+<div class="inputBox">
+    <input type="file" name="selfie" accept="image/*" capture="camera" required>
+    <img class="preview">
+</div>
+
+<button type="submit">إرسال الطلب</button>
+
+</form>
+
+</div>
+
+<script>
+// معاينة الصور فور اختيارها
+document.querySelectorAll('input[type="file"]').forEach(input=>{
+    input.addEventListener("change", function(){
+        if(this.files && this.files[0] && this.accept.includes("image")){
+            let img = this.parentElement.querySelector(".preview");
+            img.src = URL.createObjectURL(this.files[0]);
+            img.style.display = "block";
+        }
+    });
+});
+
+// رابط السكربت الجديد الذي يعمل لديك
+const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyqwfW1kxTWii4ZkmfPRpz4nijcy-LklPS6aQSiM6RapbjOe9N9GPMECUq6a0NG1TUDpg/exec";
+
+// إرسال النموذج
+document.getElementById("uploadForm").addEventListener("submit", async function(e){
+    e.preventDefault();
+
+    const btn = this.querySelector("button");
+    btn.disabled = true;
+    btn.innerText = "جاري الإرسال...";
+
+    let fd = new FormData(this);
+
+    try{
+        let res = await fetch(SCRIPT_URL, { method:"POST", body:fd });
+        let data = await res.json();
+
+        if(data.ok){
+            document.getElementById("formBox").innerHTML =
+            `<div class="success">✔ تم إرسال طلبك بنجاح<br>سيتم التواصل معك عبر واتساب قريبًا</div>`;
+        } else {
+            alert("خطأ: " + data.error);
+            btn.disabled = false;
+            btn.innerText = "إرسال الطلب";
+        }
+    }catch(err){
+        alert("تعذر الاتصال بالخادم");
+        btn.disabled = false;
+        btn.innerText = "إرسال الطلب";
+    }
+});
+</script>
+
+</body>
+</html>
